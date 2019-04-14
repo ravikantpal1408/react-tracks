@@ -19,11 +19,12 @@ import ClearIcon from "@material-ui/icons/Clear";
 import LibraryMusicIcon from "@material-ui/icons/LibraryMusic";
 import { from } from "zen-observable";
 
-
+import { GET_TRACKS_QUERY } from "../../pages/App";
 
 import Error from "../Shared/Error";
 
-import axios from 'axios';
+import axios from "axios";
+
 
 const CreateTrack = ({ classes }) => {
   const [open, setOpen] = useState(false);
@@ -31,51 +32,60 @@ const CreateTrack = ({ classes }) => {
   const [description, setDescription] = useState("");
   const [file, setFile] = useState("");
   const [submitting, setSubmitting] = useState(false);
-
-
+  const [fileError, setFileError ] = useState("")
 
   const handleAudioChange = event => {
+    const fileSizeLimit = 5000000; // 4.5 mb
     const selectedFile = event.target.files[0];
-    setFile(selectedFile);
+    if(selectedFile && selectedFile.size > fileSizeLimit)
+    {
+      setFile("")
+      setFileError(`${selectedFile.name} : File size too large !!`);
+    }
+    else{
+      setFile(selectedFile);
+      setFileError('')
+    }
+    
   };
 
-  const handleAudioUpload = async () => {
 
-    try{
+  const handleAudioUpload = async () => {
+    try {
       const data = new FormData();
 
-      data.append('file', file);
-      data.append('resource_type', 'raw');
-      data.append('upload_preset', 'react-tracks');
-      data.append('cloud_name', 'coding-brains');
+      data.append("file", file);
+      data.append("resource_type", "raw");
+      data.append("upload_preset", "react-tracks");
+      data.append("cloud_name", "coding-brains");
 
-      const res = await axios.post('https://api.cloudinary.com/v1_1/coding-brains/raw/upload', data)
+      const res = await axios.post(
+        "https://api.cloudinary.com/v1_1/coding-brains/raw/upload",
+        data
+      );
 
       return res.data.url;
-    }
-    catch(err){
-      console.log('Error Uploading audio file to cloudinary => ', err)
+    } catch (err) {
+      console.log("Error Uploading audio file to cloudinary => ", err);
       setSubmitting(false);
     }
-  }
+  };
 
   const handleSubmit = async (event, createTrack) => {
-    
     setSubmitting(true);
 
     event.preventDefault(); // prevent reloading and postback when form is submitted
     // upload our audio file, get returned url from API
 
-    const uploadedUrl = await handleAudioUpload()
+    const uploadedUrl = await handleAudioUpload();
     createTrack({
-      variables:{
+      variables: {
         title,
         description,
         url: uploadedUrl
-      }})
-
-  }
-
+      }
+    });
+  };
 
   return (
     <>
@@ -91,16 +101,24 @@ const CreateTrack = ({ classes }) => {
 
       {/* Create track Dialog */}
 
-      <Mutation mutation={ CREATE_TRACK_MUTATION } onCompleted={data=>{
-        console.log({data})
-        setSubmitting(false)
-        setOpen(false)
-      }}>
-
-
+      <Mutation
+        mutation={CREATE_TRACK_MUTATION}
+        onCompleted={data => {
+          console.log({ data });
+          setSubmitting(false);
+          setOpen(false);
+          setTitle("")
+          setDescription("")
+          setFile("")
+        }}
+        refetchQueries={() => [
+          {
+            query: GET_TRACKS_QUERY
+          }
+        ]}
+      >
         {(createTrack, { loading, error }) => {
-
-          if (error) return <Error error={error} />
+          if (error) return <Error error={error} />;
 
           return (
             <Dialog open={open} className="classes.dialog">
@@ -109,7 +127,7 @@ const CreateTrack = ({ classes }) => {
 
                 <DialogContent>
                   <DialogContentText>
-                    Add a Title, Description, & Audio File
+                    Add a Title, Description, & Audio File(Under 10 mb)
                   </DialogContentText>
 
                   <FormControl fullWidth>
@@ -118,6 +136,7 @@ const CreateTrack = ({ classes }) => {
                       label="Title"
                       placeholder="Add Title"
                       className={classes.textField}
+                      value={title}
                     />
                   </FormControl>
 
@@ -129,10 +148,11 @@ const CreateTrack = ({ classes }) => {
                       label="Description"
                       placeholder="Add Description"
                       className={classes.textField}
+                      value={description}
                     />
                   </FormControl>
 
-                  <FormControl>
+                  <FormControl error={Boolean(fileError)}>
                     <input
                       onChange={handleAudioChange}
                       id="audio"
@@ -140,6 +160,7 @@ const CreateTrack = ({ classes }) => {
                       type="file"
                       accept="audio/mp3,audio/wav"
                       className={classes.input}
+
                     />
                     <label htmlFor="audio">
                       <Button
@@ -151,7 +172,10 @@ const CreateTrack = ({ classes }) => {
                         Audio File
                         <LibraryMusicIcon className={classes.icon} />
                       </Button>
+                      
                       {file && file.name}
+                      <FormHelperText>{fileError}</FormHelperText>
+
                     </label>
                   </FormControl>
                 </DialogContent>
@@ -166,10 +190,16 @@ const CreateTrack = ({ classes }) => {
                   </Button>
                   <Button
                     type="submit"
-                    disabled={submitting || !title.trim() || !description || !file}
+                    disabled={
+                      submitting || !title.trim() || !description || !file
+                    }
                     className={classes.save}
                   >
-                    {submitting ? (<CircularProgress className={ classes.save } size={24} />) : ("Add Track")}
+                    {submitting ? (
+                      <CircularProgress className={classes.save} size={24} />
+                    ) : (
+                      "Add Track"
+                    )}
                   </Button>
                 </DialogActions>
               </form>
@@ -181,21 +211,18 @@ const CreateTrack = ({ classes }) => {
   );
 };
 
-
 const CREATE_TRACK_MUTATION = gql`
-      mutation ($title: String! , $description: String! , $url: String!){
-        createTrack(title: $title, description: $description, url: $url ){
-          track{
-            id,
-            title,
-            description
-            url
-          }
-        }
+  mutation($title: String!, $description: String!, $url: String!) {
+    createTrack(title: $title, description: $description, url: $url) {
+      track {
+        id
+        title
+        description
+        url
       }
-
-`
-
+    }
+  }
+`;
 
 const styles = theme => ({
   container: {
