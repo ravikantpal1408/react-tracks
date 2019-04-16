@@ -120,14 +120,13 @@ class UpdateTrack(graphene.Mutation):
 
 
 class DeleteTrack(graphene.Mutation):
-    track = graphene.Field(TrackType)
+    track_id = graphene.Int()
 
     class  Arguments:
         track_id = graphene.Int(required=True)
 
 
     def mutate(self, info, track_id):
-
         user = info.context.user
         track = Track.objects.get(id=track_id)
 
